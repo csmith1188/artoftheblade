@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= mode === 'pvp' ? 'PvP Match' : 'Bot Training' %> — Art of the Blade</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&family=Shojumaru&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, activeNav }) %>
+
+    <main class="stage">
+      <aside class="panel panel-p1" id="panel-p1">
+        <div class="panel-head">
+          <div class="panel-title-wrap">
+            <h2 id="name-p1">Player 1</h2>
+            <span class="panel-status" id="status-p1"></span>
+          </div>
+          <span class="power" data-tip="Total power: Attack + Defense + Mobility">Power: <strong id="stat-p1-power">—</strong><span class="stat-delta stat-delta-inline" id="delta-p1-power"></span></span>
+        </div>
+        <dl class="stats stats-summary">
+          <div data-tip="Offensive rating from Burst, Edge, and Max Spin"><dt>Attack</dt><dd id="stat-p1-attack">—</dd><span class="stat-delta" id="delta-p1-attack"></span></div>
+          <div data-tip="Defensive rating from Armor, Stability, Mass, and Max Spin"><dt>Defense</dt><dd id="stat-p1-defense">—</dd><span class="stat-delta" id="delta-p1-defense"></span></div>
+          <div data-tip="Arena control rating from Launch, Grip, and Bank"><dt>Mobility</dt><dd id="stat-p1-mobility">—</dd><span class="stat-delta" id="delta-p1-mobility"></span></div>
+        </dl>
+        <dl class="stats stats-detail">
+          <div class="stat-group" data-cat="attack">
+            <div data-tip="Early-game knockback power and recoil resistance on high-speed hits"><dt>Burst</dt><dd id="stat-p1-burst">—</dd><span class="stat-delta" id="delta-p1-burst"></span></div>
+            <div data-tip="Spin damage dealt per hit (stronger in late-game grinds)"><dt>Edge</dt><dd id="stat-p1-edge">—</dd><span class="stat-delta" id="delta-p1-edge"></span></div>
+            <div data-tip="Starting spin endurance pool"><dt>Max Spin</dt><dd id="stat-p1-maxSpin">—</dd><span class="stat-delta" id="delta-p1-maxSpin"></span></div>
+          </div>
+          <div class="stat-group" data-cat="defense">
+            <div data-tip="Reduces spin damage and knockback taken on impact"><dt>Armor</dt><dd id="stat-p1-armor">—</dd><span class="stat-delta" id="delta-p1-armor"></span></div>
+            <div data-tip="Resists outward wobble when spin gets low"><dt>Stability</dt><dd id="stat-p1-stability">—</dd><span class="stat-delta" id="delta-p1-stability"></span></div>
+            <div data-tip="Inertia: resists knockback, slows movement and passive spin decay"><dt>Mass</dt><dd id="stat-p1-mass">—</dd><span class="stat-delta" id="delta-p1-mass"></span></div>
+          </div>
+          <div class="stat-group" data-cat="mobility">
+            <div data-tip="Initial deploy speed and entry momentum"><dt>Launch</dt><dd id="stat-p1-launch">—</dd><span class="stat-delta" id="delta-p1-launch"></span></div>
+            <div data-tip="Floor traction: steadies orbit, cuts scatter and passive spin loss"><dt>Grip</dt><dd id="stat-p1-grip">—</dd><span class="stat-delta" id="delta-p1-grip"></span></div>
+            <div data-tip="Bowl slope pull: higher bank draws you inward toward center"><dt>Bank</dt><dd id="stat-p1-bank">—</dd><span class="stat-delta" id="delta-p1-bank"></span></div>
+          </div>
+        </dl>
+        <fieldset class="parts" id="parts-p1">
+          <legend>Parts</legend>
+          <div id="picker-p1"></div>
+          <div class="loadout-summary" id="summary-p1" hidden></div>
+        </fieldset>
+      </aside>
+
+      <section class="arena-wrap">
+        <div class="mode-strip" id="mode-strip">
+          <span class="mode-pill"><%= mode === 'pvp' ? 'PvP · Best of 11 (First to 6)' : 'Bot Training · Endless Rounds' %></span>
+          <a href="/games" class="mode-back">&larr; Games</a>
+        </div>
+        <div class="arena-box">
+          <canvas id="arena" width="640" height="640" aria-label="Battle arena"></canvas>
+          <p class="banner" id="banner" hidden></p>
+        </div>
+        <div class="action-row">
+          <button type="button" class="deploy" id="deploy-btn"><%= mode === 'pvp' ? 'Lock In Build' : 'Deploy' %></button>
+          <a href="/games" class="btn-secondary" id="post-match-btn" hidden>Return to Games</a>
+        </div>
+        <div class="scoreboard" id="scoreboard">
+          <div class="scoreboard-head">
+            <span id="round-label">Round 1</span>
+            <span class="score" id="score-label">0 — 0</span>
+          </div>
+          <div class="spin-stack">
+            <div class="spin-row spin-p1">
+              <span class="spin-tag" id="spin-tag-p1">P1 Spin</span>
+              <div class="spin-track">
+                <div class="spin-fill" id="spin-p1" style="width: 100%"></div>
+              </div>
+            </div>
+            <div class="spin-row spin-p2">
+              <span class="spin-tag" id="spin-tag-p2">P2 Spin</span>
+              <div class="spin-track">
+                <div class="spin-fill" id="spin-p2" style="width: 100%"></div>
+              </div>
+            </div>
+          </div>
+          <canvas id="bowl-live" width="420" height="110" aria-label="Arena bowl profile and player positions"></canvas>
+        </div>
+      </section>
+
+      <aside class="panel panel-p2" id="panel-p2">
+        <div class="panel-head">
+          <div class="panel-title-wrap">
+            <h2 id="name-p2">Player 2</h2>
+            <span class="panel-status" id="status-p2"></span>
+          </div>
+          <span class="power" data-tip="Total power: Attack + Defense + Mobility">Power: <strong id="stat-p2-power">—</strong><span class="stat-delta stat-delta-inline" id="delta-p2-power"></span></span>
+        </div>
+        <dl class="stats stats-summary">
+          <div data-tip="Offensive rating from Burst, Edge, and Max Spin"><dt>Attack</dt><dd id="stat-p2-attack">—</dd><span class="stat-delta" id="delta-p2-attack"></span></div>
+          <div data-tip="Defensive rating from Armor, Stability, Mass, and Max Spin"><dt>Defense</dt><dd id="stat-p2-defense">—</dd><span class="stat-delta" id="delta-p2-defense"></span></div>
+          <div data-tip="Arena control rating from Launch, Grip, and Bank"><dt>Mobility</dt><dd id="stat-p2-mobility">—</dd><span class="stat-delta" id="delta-p2-mobility"></span></div>
+        </dl>
+        <dl class="stats stats-detail">
+          <div class="stat-group" data-cat="attack">
+            <div data-tip="Early-game knockback power and recoil resistance on high-speed hits"><dt>Burst</dt><dd id="stat-p2-burst">—</dd><span class="stat-delta" id="delta-p2-burst"></span></div>
+            <div data-tip="Spin damage dealt per hit (stronger in late-game grinds)"><dt>Edge</dt><dd id="stat-p2-edge">—</dd><span class="stat-delta" id="delta-p2-edge"></span></div>
+            <div data-tip="Starting spin endurance pool"><dt>Max Spin</dt><dd id="stat-p2-maxSpin">—</dd><span class="stat-delta" id="delta-p2-maxSpin"></span></div>
+          </div>
+          <div class="stat-group" data-cat="defense">
+            <div data-tip="Reduces spin damage and knockback taken on impact"><dt>Armor</dt><dd id="stat-p2-armor">—</dd><span class="stat-delta" id="delta-p2-armor"></span></div>
+            <div data-tip="Resists outward wobble when spin gets low"><dt>Stability</dt><dd id="stat-p2-stability">—</dd><span class="stat-delta" id="delta-p2-stability"></span></div>
+            <div data-tip="Inertia: resists knockback, slows movement and passive spin decay"><dt>Mass</dt><dd id="stat-p2-mass">—</dd><span class="stat-delta" id="delta-p2-mass"></span></div>
+          </div>
+          <div class="stat-group" data-cat="mobility">
+            <div data-tip="Initial deploy speed and entry momentum"><dt>Launch</dt><dd id="stat-p2-launch">—</dd><span class="stat-delta" id="delta-p2-launch"></span></div>
+            <div data-tip="Floor traction: steadies orbit, cuts scatter and passive spin loss"><dt>Grip</dt><dd id="stat-p2-grip">—</dd><span class="stat-delta" id="delta-p2-grip"></span></div>
+            <div data-tip="Bowl slope pull: higher bank draws you inward toward center"><dt>Bank</dt><dd id="stat-p2-bank">—</dd><span class="stat-delta" id="delta-p2-bank"></span></div>
+          </div>
+        </dl>
+
+        <% if (mode === 'bot') { %>
+        <div class="bot-controls" id="bot-controls">
+          <div class="bot-controls-row">
+            <select id="arena-bot-archetype" class="select-input select-compact" aria-label="Bot archetype">
+              <option value="random" <%= archetype === 'random' ? 'selected' : '' %>>Random</option>
+              <option value="attack" <%= archetype === 'attack' ? 'selected' : '' %>>Attack</option>
+              <option value="defense" <%= archetype === 'defense' ? 'selected' : '' %>>Defense</option>
+              <option value="mobility" <%= archetype === 'mobility' ? 'selected' : '' %>>Mobility</option>
+              <option value="balanced" <%= archetype === 'balanced' ? 'selected' : '' %>>Balanced</option>
+            </select>
+            <select id="arena-bot-grade" class="select-input select-compact" aria-label="Bot part grade">
+              <option value="low" <%= grade === 'low' ? 'selected' : '' %>>Low</option>
+              <option value="medium" <%= grade === 'medium' ? 'selected' : '' %>>Medium</option>
+              <option value="high" <%= grade === 'high' ? 'selected' : '' %>>High</option>
+              <option value="mixed" <%= grade === 'mixed' ? 'selected' : '' %>>Mixed</option>
+            </select>
+            <button type="button" class="btn-secondary btn-compact" id="bot-reroll-btn">Re-roll</button>
+          </div>
+        </div>
+        <% } %>
+
+        <fieldset class="parts" id="parts-p2">
+          <legend>Parts</legend>
+          <div id="picker-p2"></div>
+          <div class="loadout-summary" id="summary-p2" hidden></div>
+        </fieldset>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    window.__GAME_BOOT__ = <%- JSON.stringify({
+      mode,
+      matchId,
+      archetype,
+      grade,
+      user,
+      userId,
+    }) %>;
+  </script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/js/game.js"></script>
+</body>
+</html>

@@ -136,42 +136,6 @@ function fromCartVel(top, vx, vy) {
  * @param {number} r0
  * @param {number} r1
  */
-// #region agent log
-const DBG_ENDPOINT = "http://127.0.0.1:7268/ingest/a04cf68a-ab33-4531-8136-543ff0f661d0";
-const DBG_SESSION = "c6244d";
-function dbgLog(hypothesisId, location, message, data) {
-  fetch(DBG_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": DBG_SESSION },
-    body: JSON.stringify({
-      sessionId: DBG_SESSION,
-      runId: "ko-post-fix-2",
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-}
-
-let dbgRound = null;
-export function resetDebugMetrics() {
-  dbgRound = {
-    elapsedSimSec: 0,
-    hits: 0,
-    maxR: [0, 0],
-    peakVr: [0, 0],
-    outCapHits: [0, 0],
-    potBleedVr: [0, 0],
-    bowlBrakeVr: [0, 0],
-  };
-}
-export function getDebugMetrics() {
-  return dbgRound;
-}
-// #endregion
-
 function applyBowlPotential(top, r0, r1, idx = -1) {
   // Removed redundant double-braking: bowlAcceleration(r) already applies the
   // exact bowl floor slope (-g * dt). Keep hook for clean instrumentation.
@@ -193,23 +157,26 @@ export function integrateTop(top, dt, idx = -1) {
   const gripN = top.grip / 100;
   const massN = top.mass / 100;
   const stabN = top.stability / 100;
-  const bankScale = 0.88 + bankN * 0.24;
+  const bankScale = 0.82 + Math.pow(bankN, 1.2) * 0.56;
 
+  // High grip preserves tangential drive while braking outward radial knockback
   const fr =
     MOVE_FRICTION_BASE *
-    (0.7 + gripN * 0.9) *
-    (1 - massN * 0.4);
+    (1.02 - gripN * 0.42) *
+    (1 - massN * 0.32);
+  const frOut = fr * (1 + Math.pow(gripN, 1.3) * 1.35);
 
   // Low spin wobble → outward; stability resists ring-out death spiral
   let wobble = 0;
   if (ratio < 0.4) {
-    wobble = (0.4 - ratio) * 85 * (1 - stabN * 0.75);
+    wobble = (0.4 - ratio) * 85 * (1 - stabN * 0.78);
   }
 
+  // Mass + stability (Defense) and grip (Mobility) conserve passive spin
   const spinLoss =
     SPIN_FRICTION_BASE *
-    (1 - massN * 0.2) *
-    (1 - gripN * 0.12) *
+    (1 - Math.pow(massN, 1.3) * 0.28 - Math.pow(stabN, 1.3) * 0.16) *
+    (1 - Math.pow(gripN, 1.3) * 0.34) *
     (0.65 + (1 - ratio) * 0.55);
   top.spin = Math.max(0, top.spin - spinLoss * 12 * dt);
 
@@ -260,11 +227,8 @@ export function integrateTop(top, dt, idx = -1) {
     const g = bowlAcceleration(top.r, ARENA_RADIUS, bankScale);
     // Centrifugal lift from orbital speed: fast Attack tops ride higher; slow Defense sinks
     const centrifugal = (CENTRIFUGAL_SCALE * top.vt * top.vt) / Math.max(top.r, POCKET_RADIUS);
-    // #region agent log
-    if (dbgRound && idx >= 0 && top.vr > 0) dbgRound.bowlBrakeVr[idx] += g * dt;
-    // #endregion
     top.vr += (-g + centrifugal + wobble) * dt;
-    top.vr *= Math.max(0, 1 - fr * dt);
+    top.vr *= Math.max(0, 1 - (top.vr > 0 ? frOut : fr) * dt);
     top.vt *= Math.max(0, 1 - fr * dt);
 
     top.r += top.vr * dt;
@@ -283,13 +247,6 @@ export function integrateTop(top, dt, idx = -1) {
 
   const spinDir = top.vt >= 0 ? 1 : -1;
   top.angle += spinDir * ratio * 18 * dt + dTheta * 0.35;
-
-  // #region agent log
-  if (dbgRound && idx >= 0) {
-    if (top.r > dbgRound.maxR[idx]) dbgRound.maxR[idx] = top.r;
-    if (top.vr > dbgRound.peakVr[idx]) dbgRound.peakVr[idx] = top.vr;
-  }
-  // #endregion
 
   if (top.spin <= 0) {
     top.spin = 0;
@@ -369,21 +326,45 @@ export function resolveCollision(a, b) {
     j += (minSep - sepAfter) / (1 / ma + 1 / mb);
   }
 
-  // Burst is directional: attacker's burst drives knockback into the opponent
-  // AND reduces the attacker's own elastic recoil (bites through instead of bouncing off).
+  // Convex stat curves so specialized builds (90+) outshine jack-of-all-trades (57) in their lane
+  const spdA = Math.hypot(va.vx, va.vy);
+  const spdB = Math.hypot(vb.vx, vb.vy);
+  const velEdgeA = Math.max(0, Math.min(1, (spdA - spdB + 20) / 210));
+  const velEdgeB = Math.max(0, Math.min(1, (spdB - spdA + 20) / 210));
+
+  const burstA = Math.pow(a.burst / 100, 1.45);
+  const burstB = Math.pow(b.burst / 100, 1.45);
+  const edgeA = Math.pow(a.edge / 100, 1.45);
+  const edgeB = Math.pow(b.edge / 100, 1.45);
+  const armorA = Math.pow(a.armor / 100, 1.35);
+  const armorB = Math.pow(b.armor / 100, 1.35);
+  const stabA = Math.pow(a.stability / 100, 1.35);
+  const stabB = Math.pow(b.stability / 100, 1.35);
+  const massA = Math.pow(a.mass / 100, 1.3);
+  const massB = Math.pow(b.mass / 100, 1.3);
+  const launchA = Math.pow(a.launch / 100, 1.4);
+  const launchB = Math.pow(b.launch / 100, 1.4);
+  const gripA = Math.pow(a.grip / 100, 1.4);
+  const gripB = Math.pow(b.grip / 100, 1.4);
+  const bankA = Math.pow(a.bank / 100, 1.4);
+  const bankB = Math.pow(b.bank / 100, 1.4);
+
+  const mobDriveA = launchA * (0.4 + 0.65 * velEdgeA) + bankA * 0.35;
+  const mobDriveB = launchB * (0.4 + 0.65 * velEdgeB) + bankB * 0.35;
+
   const approachFactor = 0.65 + Math.min(1.1, approach / 260);
   const kickOntoB =
-    HIT_KICK * Math.pow(a.burst / 100, 1.15) * phase * approachFactor;
+    HIT_KICK * (burstA * 1.15 + mobDriveA * 0.65) * phase * approachFactor;
   const kickOntoA =
-    HIT_KICK * Math.pow(b.burst / 100, 1.15) * phase * approachFactor;
+    HIT_KICK * (burstB * 1.15 + mobDriveB * 0.65) * phase * approachFactor;
 
-  // High-burst attacker absorbs less rebound from its own strike
-  const recoilA = 1 - (a.burst / 100) * 0.42 * phase;
-  const recoilB = 1 - (b.burst / 100) * 0.42 * phase;
+  // High-burst or faster high-mobility attacker absorbs less rebound from its own strike
+  const recoilA = Math.max(0.42, 1 - burstA * 0.45 * phase - mobDriveA * 0.26);
+  const recoilB = Math.max(0.42, 1 - burstB * 0.45 * phase - mobDriveB * 0.26);
 
-  // Armor + mass soften knockback taken
-  const softA = 1 - (a.armor / 100) * 0.22 - (a.mass / 100) * 0.08;
-  const softB = 1 - (b.armor / 100) * 0.22 - (b.mass / 100) * 0.08;
+  // Armor, mass, and floor grip soften knockback taken
+  const softA = Math.max(0.38, 1 - armorA * 0.32 - massA * 0.14 - gripA * 0.2);
+  const softB = Math.max(0.38, 1 - armorB * 0.32 - massB * 0.14 - gripB * 0.2);
 
   const pushVelA = ((j / ma) * recoilA + kickOntoA / Math.sqrt(ma)) * softA;
   const pushVelB = ((j / mb) * recoilB + kickOntoB / Math.sqrt(mb)) * softB;
@@ -435,19 +416,19 @@ export function resolveCollision(a, b) {
   const impactJitterB = 0.12 + Math.pow(Math.random(), 1.65) * 2.02;
   const burstClash = BURST_CLASH_BONUS * (a.burst / 100) * (b.burst / 100);
   const outShockOntoB =
-    (BASE_OUTWARD_KICK * recoilB + BURST_OUTWARD_KICK * (a.burst / 100) + burstClash) *
+    (BASE_OUTWARD_KICK * recoilB + BURST_OUTWARD_KICK * burstA * 1.4 + 52 * mobDriveA + burstClash) *
     phase *
     approachFactor *
     impactJitterB *
-    (1 - (b.armor / 100) * 0.16 - (b.stability / 100) * 0.09) /
-    Math.pow(mb, 0.2);
+    Math.max(0.35, 1 - armorB * 0.28 - stabB * 0.18 - gripB * 0.16 - bankB * 0.18) /
+    Math.pow(mb, 0.22);
   const outShockOntoA =
-    (BASE_OUTWARD_KICK * recoilA + BURST_OUTWARD_KICK * (b.burst / 100) + burstClash) *
+    (BASE_OUTWARD_KICK * recoilA + BURST_OUTWARD_KICK * burstB * 1.4 + 52 * mobDriveB + burstClash) *
     phase *
     approachFactor *
     impactJitterA *
-    (1 - (a.armor / 100) * 0.16 - (a.stability / 100) * 0.09) /
-    Math.pow(ma, 0.2);
+    Math.max(0.35, 1 - armorA * 0.28 - stabA * 0.18 - gripA * 0.16 - bankA * 0.18) /
+    Math.pow(ma, 0.22);
   a.vr += outShockOntoA;
   b.vr += outShockOntoB;
 
@@ -460,41 +441,28 @@ export function resolveCollision(a, b) {
   if (outCapA) a.vr = outCap;
   if (outCapB) b.vr = outCap;
 
-  // #region agent log
-  if (dbgRound) {
-    dbgRound.hits += 1;
-    if (outCapA) dbgRound.outCapHits[0] += 1;
-    if (outCapB) dbgRound.outCapHits[1] += 1;
-    if (dbgRound.hits <= 6) {
-      dbgLog("H1,H2,H3,H4", "js/physics.js:resolveCollision", "hit", {
-        hit: dbgRound.hits,
-        t: Number(dbgRound.elapsedSimSec.toFixed(2)),
-        phase: Number(phase.toFixed(2)),
-        closing: Number(closing.toFixed(1)),
-        pushVelA: Number(pushVelA.toFixed(1)),
-        pushVelB: Number(pushVelB.toFixed(1)),
-        rA: Number(a.r.toFixed(1)),
-        rB: Number(b.r.toFixed(1)),
-        preCapVrA: Number(preCapVrA.toFixed(1)),
-        preCapVrB: Number(preCapVrB.toFixed(1)),
-        vrA: Number(a.vr.toFixed(1)),
-        vrB: Number(b.vr.toFixed(1)),
-        vtA: Number(a.vt.toFixed(1)),
-        vtB: Number(b.vt.toFixed(1)),
-        outCap: Number(outCap.toFixed(1)),
-        outCapA,
-        outCapB,
-      });
-    }
-  }
-  // #endregion
-
-  // Edge + light early burst shock vs armor (Defense should win late spin grinds if it survives)
+  // Dominant offensive channel (Attack vs Mobility momentum) + Defense wall counter-drain
+  // Triangle: Attack > Mobility > Defense > Attack; Balanced ~50% vs all three.
   const impact = Math.min(2.2, Math.abs(j) / 150 + approach / 300);
-  const atkPowerA = (a.edge / 100) * edgePhase(ratioA) + (a.burst / 100) * phase * 0.18;
-  const atkPowerB = (b.edge / 100) * edgePhase(ratioB) + (b.burst / 100) * phase * 0.18;
-  const drainOnB = impact * atkPowerA * (1 - b.armor / 185) * 13;
-  const drainOnA = impact * atkPowerB * (1 - a.armor / 185) * 13;
+  const rawAtkA = edgeA * edgePhase(ratioA) + burstA * phase * 0.32;
+  const rawAtkB = edgeB * edgePhase(ratioB) + burstB * phase * 0.32;
+  const mobAtkA = mobDriveA * 0.48 + gripA * 0.31 + bankA * 0.3;
+  const mobAtkB = mobDriveB * 0.48 + gripB * 0.31 + bankB * 0.3;
+
+  // Heavy armored/stable Defense walls reflect spin shock back onto attackers (Mobility evades via speed/grip)
+  const wallCounterA = (armorA * 0.205 + massA * 0.2 + stabA * 0.2) * Math.max(0.38, 1 - velEdgeB * 0.34 - gripB * 0.28);
+  const wallCounterB = (armorB * 0.205 + massB * 0.2 + stabB * 0.2) * Math.max(0.38, 1 - velEdgeA * 0.34 - gripA * 0.28);
+
+  // Armor + stability + mass blunt raw Attack; Mobility's speed-driven hits pierce part of Defense
+  const defVsRawB = Math.max(0.35, 1 - armorB * 0.31 - stabB * 0.19 - massB * 0.19 - gripB * 0.04);
+  const defVsRawA = Math.max(0.35, 1 - armorA * 0.31 - stabA * 0.19 - massA * 0.19 - gripA * 0.04);
+  const defVsMobB = Math.max(0.52, 1 - armorB * 0.19 - stabB * 0.115 - massB * 0.115 - gripB * 0.1);
+  const defVsMobA = Math.max(0.52, 1 - armorA * 0.19 - stabA * 0.115 - massA * 0.115 - gripA * 0.1);
+
+  const contactJitterA = 0.78 + Math.random() * 0.44;
+  const contactJitterB = 0.78 + Math.random() * 0.44;
+  const drainOnB = impact * (rawAtkA * defVsRawB + mobAtkA * defVsMobB + wallCounterA * defVsRawB) * contactJitterB * 14.5;
+  const drainOnA = impact * (rawAtkB * defVsRawA + mobAtkB * defVsMobA + wallCounterB * defVsRawA) * contactJitterA * 14.5;
 
   a.spin = Math.max(0, a.spin - drainOnA);
   b.spin = Math.max(0, b.spin - drainOnB);
@@ -516,9 +484,6 @@ export function resolveCollision(a, b) {
  * @param {number} dt
  */
 export function stepPhysics(tops, dt) {
-  // #region agent log
-  if (dbgRound) dbgRound.elapsedSimSec += dt;
-  // #endregion
   for (let i = 0; i < tops.length; i++) {
     integrateTop(tops[i], dt, i);
   }
@@ -566,8 +531,8 @@ export function deployPose(playerIndex, stats) {
   const bankN = (stats?.bank ?? 40) / 100;
   const maxSpin = stats?.maxSpin ?? 100;
 
-  const speed = 250 + launchN * 155;
-  const inward = 65 + launchN * 45 + (1 - bankN) * 30;
+  const speed = 250 + launchN * 185;
+  const inward = 65 + launchN * 50 + (1 - bankN) * 30;
 
   return {
     r: ARENA_RADIUS * (0.64 + (1 - launchN) * 0.06 + (Math.random() - 0.5) * 0.10),

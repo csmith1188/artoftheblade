@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Games — Art of the Blade</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&family=Shojumaru&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, activeNav }) %>
+
+    <main class="hub-main">
+      <section class="hub-intro">
+        <div>
+          <h2 class="hub-title">Choose Your Arena</h2>
+          <p class="hub-sub">Signed in as <strong><%= user %></strong> &middot; PvP Record: <strong><%= profile.wins %>W – <%= profile.losses %>L</strong></p>
+        </div>
+        <div class="hub-live-pill">
+          <span class="live-dot"></span>
+          <span><strong id="online-count">—</strong> online</span>
+          <span class="pill-sep">&middot;</span>
+          <span><strong id="queue-count">—</strong> searching</span>
+        </div>
+      </section>
+
+      <div class="hub-grid">
+        <article class="hub-card hub-card-pvp">
+          <div class="hub-card-head">
+            <span class="hub-badge hub-badge-pvp">Ranked PvP</span>
+            <h3>Best of 11 Duel</h3>
+            <p class="hub-desc">
+              Get matched with another searching Formbar player. Lock in your blade build before Round 1 — loadouts stay locked for the entire match. First to <strong>6 wins</strong> takes the victory.
+            </p>
+          </div>
+          <div class="hub-card-body">
+            <ul class="hub-rules">
+              <li>First to <strong>6 round wins</strong> (Best of 11)</li>
+              <li>Parts locked for the full match once both players ready up</li>
+              <li>Real-time server-authoritative physics over WebSockets</li>
+              <li>Results recorded to your Formbar profile</li>
+            </ul>
+            <div class="queue-box" id="queue-box">
+              <p class="queue-status" id="queue-status">Ready to search for an opponent.</p>
+              <div class="queue-actions">
+                <button type="button" class="deploy" id="queue-join-btn">Find Match</button>
+                <button type="button" class="btn-secondary" id="queue-cancel-btn" hidden>Cancel Search</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="hub-card hub-card-bot">
+          <div class="hub-card-head">
+            <span class="hub-badge hub-badge-bot">Training</span>
+            <h3>Train Against Bots</h3>
+            <p class="hub-desc">
+              Test builds in endless practice rounds against auto-generated bots. Swap your parts or re-roll the bot between rounds at any time.
+            </p>
+          </div>
+          <form class="hub-card-body bot-form" action="/play" method="GET">
+            <input type="hidden" name="mode" value="bot" />
+            <div class="form-row">
+              <label for="bot-archetype">Bot Archetype</label>
+              <select id="bot-archetype" name="archetype" class="select-input">
+                <option value="random" selected>Random</option>
+                <option value="attack">Attack</option>
+                <option value="defense">Defense</option>
+                <option value="mobility">Mobility</option>
+                <option value="balanced">Balanced</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="bot-grade">Bot Part Grade</label>
+              <select id="bot-grade" name="grade" class="select-input">
+                <option value="low">Low (Tier I)</option>
+                <option value="medium" selected>Medium (Tier II)</option>
+                <option value="high">High (Tier III)</option>
+                <option value="mixed">Mixed</option>
+              </select>
+            </div>
+            <button type="submit" class="deploy deploy-bot">Enter Training Arena</button>
+          </form>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/js/lobby.js"></script>
+</body>
+</html>

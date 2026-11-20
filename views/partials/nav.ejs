@@ -1,0 +1,12 @@
+<header class="top-bar">
+  <a href="/games" class="brand-link">
+    <h1 class="brand">Art of the Blade</h1>
+  </a>
+  <nav class="top-nav" aria-label="Primary navigation">
+    <a href="/games" class="nav-link <%= activeNav === 'games' ? 'is-active' : '' %>">Games</a>
+    <a href="/inventory" class="nav-link <%= activeNav === 'inventory' ? 'is-active' : '' %>">Inventory</a>
+    <a href="/profile" class="nav-link <%= activeNav === 'profile' ? 'is-active' : '' %>">Profile</a>
+    <span class="nav-user" title="Signed in via Formbar"><%= user %></span>
+    <a href="/logout" class="nav-link nav-logout">Log Out</a>
+  </nav>
+</header>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inventory &amp; Chests — Art of the Blade</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&family=Shojumaru&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, activeNav }) %>
+
+    <main class="inventory-main">
+      <section class="chest-card">
+        <div class="chest-card-left">
+          <span class="hub-badge hub-badge-pvp">Part Supply</span>
+          <h2 class="chest-title">Blade Chests</h2>
+          <p class="chest-desc">
+            Open a chest to receive one random part of any type (duplicates stack in your inventory). Win PvP matches or Bot training rounds to earn more chests.
+          </p>
+          <div class="chest-odds" aria-label="Chest grade drop rates">
+            <% chestWeights.forEach((w) => { %>
+              <span class="odds-pill" data-grade="<%= w.grade %>">
+                <%= w.grade.charAt(0).toUpperCase() + w.grade.slice(1) %> · <%= w.weight %>%
+              </span>
+            <% }) %>
+          </div>
+          <div class="chest-action-row">
+            <div class="chest-counter">
+              <span class="chest-counter-label">Available Chests</span>
+              <strong class="chest-counter-val" id="chest-count"><%= profile.chests ?? 0 %></strong>
+            </div>
+            <button
+              type="button"
+              class="deploy chest-open-btn"
+              id="open-chest-btn"
+              <%= (profile.chests ?? 0) <= 0 ? 'disabled' : '' %>
+            >
+              Open Chest
+            </button>
+          </div>
+          <p class="chest-error" id="chest-error" hidden></p>
+        </div>
+
+        <div class="chest-reveal" id="chest-reveal" aria-live="polite">
+          <div class="chest-reveal-empty" id="chest-reveal-empty">
+            <span class="chest-reveal-placeholder">?</span>
+            <p>Open a chest to reveal a random part.</p>
+          </div>
+          <div class="chest-reveal-content" id="chest-reveal-content" hidden></div>
+        </div>
+      </section>
+
+      <section class="collection-card">
+        <div class="collection-head">
+          <div>
+            <h3>Your Part Inventory</h3>
+            <p class="collection-sub">
+              <strong id="owned-unique">0</strong> / <span id="catalog-total">144</span> unique parts owned
+              &middot;
+              <strong id="owned-total">0</strong> total parts
+            </p>
+          </div>
+          <div class="collection-controls">
+            <div class="inv-slot-tabs" id="inv-slot-tabs" role="tablist" aria-label="Part slot filter"></div>
+            <label class="inv-filter-toggle">
+              <input type="checkbox" id="owned-only-toggle" />
+              <span>Owned only</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="inv-inspector" id="inv-inspector"></div>
+        <div class="inv-categories" id="inv-categories"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    window.__INVENTORY_BOOT__ = <%- JSON.stringify({
+      chests: profile.chests ?? 0,
+      inventory,
+    }) %>;
+  </script>
+  <script type="module" src="/js/inventory.js"></script>
+</body>
+</html>

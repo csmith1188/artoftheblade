@@ -1,5 +1,5 @@
-import { ARENA_RADIUS, TOP_RADIUS, polarToCartesian } from "./physics.js";
-import { sampleBowl } from "./bowl.js";
+import { ARENA_RADIUS, TOP_RADIUS, polarToCartesian } from "./shared/physics.js";
+import { sampleBowl } from "./shared/bowl.js";
 
 const COLORS = ["#e85d04", "#00b4d8"];
 const RING_COLORS = ["rgba(143,163,181,0.12)", "rgba(143,163,181,0.08)", "rgba(143,163,181,0.05)"];
@@ -178,7 +178,7 @@ export function createBowlProfileRenderer(canvas) {
 
     // Axis labels
     ctx.fillStyle = "#9aadc0";
-    ctx.font = "10px IBM Plex Sans, sans-serif";
+    ctx.font = '10px "Shippori Mincho", Georgia, serif';
     ctx.textAlign = "left";
     ctx.fillText("center", rect.x, h - 5);
     ctx.textAlign = "right";

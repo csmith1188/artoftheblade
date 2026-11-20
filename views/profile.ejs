@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Profile — Art of the Blade</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700&family=Shojumaru&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+    <%- include('partials/nav', { user, activeNav }) %>
+
+    <main class="profile-main">
+      <section class="profile-header-card">
+        <div>
+          <span class="hub-badge hub-badge-pvp">Formbar Blader</span>
+          <h2 class="profile-name"><%= profile.username %></h2>
+          <p class="profile-meta">
+            Member since <%= new Date(profile.created_at).toLocaleDateString() %>
+            <% if (profile.formbar_id) { %> &middot; Formbar ID #<%= profile.formbar_id %><% } %>
+          </p>
+        </div>
+        <a href="/games" class="deploy">Play Now</a>
+      </section>
+
+      <section class="profile-stats-grid">
+        <div class="stat-card">
+          <span class="stat-card-label">PvP Wins</span>
+          <strong class="stat-card-val is-win"><%= profile.wins %></strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-label">PvP Losses</span>
+          <strong class="stat-card-val is-loss"><%= profile.losses %></strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-label">PvP Win Rate</span>
+          <strong class="stat-card-val"><%= winRate %>%</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-label">Bot Training</span>
+          <strong class="stat-card-val"><%= profile.bot_wins %>W – <%= profile.bot_losses %>L</strong>
+        </div>
+      </section>
+
+      <section class="profile-history-card">
+        <div class="history-head">
+          <h3>Recent PvP Matches (Best of 11)</h3>
+          <span class="history-count"><%= matches.length %> recorded</span>
+        </div>
+
+        <% if (!matches.length) { %>
+          <p class="history-empty">No PvP matches played yet. Head to the <a href="/games">Games</a> page to challenge another player.</p>
+        <% } else { %>
+          <div class="history-table-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Result</th>
+                  <th>Opponent</th>
+                  <th>Score</th>
+                  <th>Finish</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% matches.forEach((m) => {
+                  const isP1 = m.p1_user_id === profile.id;
+                  const opponent = isP1 ? m.p2_username : m.p1_username;
+                  const myScore = isP1 ? m.p1_score : m.p2_score;
+                  const oppScore = isP1 ? m.p2_score : m.p1_score;
+                  const won = m.winner_user_id === profile.id;
+                %>
+                  <tr>
+                    <td>
+                      <span class="result-pill <%= won ? 'is-win' : 'is-loss' %>"><%= won ? 'WIN' : 'LOSS' %></span>
+                    </td>
+                    <td><%= opponent %></td>
+                    <td class="score-cell"><%= myScore %> — <%= oppScore %></td>
+                    <td class="reason-cell"><%= m.ended_reason === 'forfeit' ? 'Forfeit' : 'First to 6' %></td>
+                    <td class="date-cell"><%= new Date(m.created_at).toLocaleString() %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

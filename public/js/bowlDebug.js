@@ -4,7 +4,7 @@ import {
   resetBowlPoints,
   sampleBowl,
   clampEase,
-} from "./bowl.js";
+} from "./shared/bowl.js";
 
 const DEFAULT_GAME_SPEED = 1;
 let gameSpeed = DEFAULT_GAME_SPEED;
@@ -118,7 +118,7 @@ export function initBowlDebug(root, onChange) {
     }
 
     ctx.fillStyle = "#9aadc0";
-    ctx.font = "11px IBM Plex Sans, sans-serif";
+    ctx.font = '11px "Shippori Mincho", Georgia, serif';
     ctx.textAlign = "center";
     ctx.fillText("center", rect.x, h - 8);
     ctx.fillText("rim", rect.x + rect.w, h - 8);
